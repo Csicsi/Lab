@@ -161,6 +161,9 @@ def test_transfer_uses_internal_bank_record_description() -> None:
         "2061532320260704 10168024172"
     )
 
+    # Description is kept (not blanked) — "Depotgebühr Juni 2026" tells
+    # you which month's custody fee this is, which the bare counterparty
+    # "Depotentgelt" alone doesn't.
     assert parse_narrative(raw) == ("Depotentgelt", "Depotgebühr Juni 2026")
 
 

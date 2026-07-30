@@ -14,7 +14,7 @@ from expense_tracker import (
     transaction_search_text,
 )
 
-CONFIG_PATH = Path("config/categories.toml")
+CONFIG_PATH = Path(__file__).parent / "fixtures" / "categories.toml"
 
 
 @pytest.fixture

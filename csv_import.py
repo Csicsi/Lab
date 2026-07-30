@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import csv
+import re
 from collections.abc import Iterable
 from datetime import datetime
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
-import re
 
 from .models import Transaction, parse_amount_to_cents
-
 
 BIC_PREFIX_RE = re.compile(r"^[A-Z0-9]{8}([A-Z0-9]{3})?\s+")
 IBAN_PREFIX_RE = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{1,30}\s+")

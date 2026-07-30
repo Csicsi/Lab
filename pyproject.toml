@@ -15,7 +15,22 @@ dependencies = [
 requires = ["uv_build>=0.11.32,<0.12.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-name = "expense_tracker"
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.14.0",
 ]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Start narrow and expand later: E/F/I catch real bugs (like the
+# duplicate-function-definition issue this config was added to prevent),
+# without the noise of a full strict ruleset on day one.
+select = ["E", "F", "I", "UP"]
+

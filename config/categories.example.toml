@@ -1,0 +1,30 @@
+# Starter categorization config. Copy this to config/categories.toml
+# and customize with your own merchants and rules — that file is
+# gitignored on purpose, since it ends up encoding real spending
+# habits and, potentially, family/personal details.
+#
+#   cp config/categories.example.toml config/categories.toml
+
+[[categories]]
+id = "groceries"
+name = "Groceries"
+
+[[categories]]
+id = "fees"
+name = "Fees"
+
+[[categories]]
+id = "cash"
+name = "Cash"
+
+[[rules]]
+category_id = "groceries"
+patterns = ["BILLA", "SPAR", "HOFER", "LIDL"]
+
+[[rules]]
+category_id = "fees"
+patterns = ["Kontoführung", "Gebühr"]
+
+[[rules]]
+category_id = "cash"
+patterns = ["ATM Withdrawal"]

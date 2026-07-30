@@ -77,14 +77,31 @@ These apply throughout the build, not just at the start.
 Each step assumes the previous ones are genuinely working, not just
 started.
 
-### 1. Domain core + CSV import
+> **Execution order note (added after Step 1):** Steps are numbered by
+> their place in the finished system, not strictly by the order they'll
+> be built. Step 2 (base infra) is deferred until after an upcoming
+> move — standing up a mini PC just to tear it down before relocating
+> would be pure waste, and per this doc's own principles ("infra only
+> grows when the app needs it", "every stage produces something
+> usable"), a bare Ubuntu box with nothing deployed on it yet doesn't
+> actually satisfy either one. Steps 3 (REST API) and 4 (CLI) are fully
+> local — FastAPI dev server, SQLite, Typer — and get built next
+> instead, since they produce something genuinely usable (a real CLI
+> tool, not just `main.py`) without needing any hardware. Step 2
+> resumes once there's a stable place to live and something real
+> (Step 3+4's API) actually worth deploying in Step 5.
+>
+> **Actual order:** 1 → 3 → 4 → 2 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 →
+> 13 → 14 → 15+.
+
+### 1. Domain core + CSV import — ✅ done
 No infra yet. Build `Account`, `Transaction`, and `Category` models,
 CSV import, and rule-based categorization ("merchant contains SPAR →
 Groceries") entirely as a local Python project (`uv`, plain scripts).
 End result: a real spending report generated from your own bank's
 exported CSV, run locally. Target: 2–3 weekends. No Docker, no AI yet.
 
-### 2. Base infra — single machine
+### 2. Base infra — single machine — ⏸ deferred until after the move
 One always-on box (Pi / mini PC / old laptop). Set up fresh: Ubuntu
 Server, your own Ansible inventory and control node (written from
 scratch — reference the old repo's `setup_servers.yml` for shape only,
@@ -92,7 +109,7 @@ don't copy it), Docker + Docker Compose, and an Nginx reverse proxy.
 Nothing else yet — no Portainer, no Homer, no monitoring stack; there's
 only one service worth managing at this point.
 
-### 3. REST API
+### 3. REST API — ▶ next
 Wrap the domain logic from Step 1 in FastAPI + SQLModel, so it's
 reachable over a network instead of only as local scripts. Endpoints:
 `/transactions`, `/accounts`, `/categories`, `/health`, `/version`. This

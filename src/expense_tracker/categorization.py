@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import tomllib
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
-import unicodedata
 
 from .models import Category, Transaction
 
@@ -30,10 +30,7 @@ class CategoryRule:
 
     def matches(self, transaction: Transaction) -> bool:
         searchable_text = transaction_search_text(transaction)
-        return any(
-            normalize_text(pattern) in searchable_text
-            for pattern in self.patterns
-        )
+        return any(normalize_text(pattern) in searchable_text for pattern in self.patterns)
 
 
 def load_categorization_config(
@@ -43,10 +40,7 @@ def load_categorization_config(
     with Path(path).open("rb") as config_file:
         data = tomllib.load(config_file)
 
-    categories = tuple(
-        Category.model_validate(item)
-        for item in data.get("categories", [])
-    )
+    categories = tuple(Category.model_validate(item) for item in data.get("categories", []))
     category_ids = [category.id for category in categories]
     if len(category_ids) != len(set(category_ids)):
         raise ValueError("Category IDs must be unique")
@@ -58,10 +52,7 @@ def load_categorization_config(
         )
         for item in data.get("rules", [])
     )
-    unknown_ids = {
-        rule.category_id for rule in rules
-        if rule.category_id not in category_ids
-    }
+    unknown_ids = {rule.category_id for rule in rules if rule.category_id not in category_ids}
     if unknown_ids:
         unknown = ", ".join(sorted(unknown_ids))
         raise ValueError(f"Rules reference unknown category IDs: {unknown}")
@@ -86,8 +77,6 @@ def categorize_transactions(
 ) -> list[Transaction]:
     """Return categorized copies without mutating the input transactions."""
     return [
-        transaction.model_copy(
-            update={"category_id": categorize_transaction(transaction, rules)}
-        )
+        transaction.model_copy(update={"category_id": categorize_transaction(transaction, rules)})
         for transaction in transactions
     ]

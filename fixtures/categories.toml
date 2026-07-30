@@ -1,0 +1,36 @@
+# Synthetic categorization config used ONLY by the test suite.
+# Deliberately generic — no real merchants, amounts, or personal
+# patterns. The real config lives at config/categories.toml, is
+# gitignored, and is never read by tests.
+
+[[categories]]
+id = "groceries"
+name = "Groceries"
+
+[[categories]]
+id = "fees"
+name = "Fees"
+
+[[categories]]
+id = "cash"
+name = "Cash"
+
+[[categories]]
+id = "shopping"
+name = "Shopping"
+
+[[rules]]
+category_id = "groceries"
+patterns = ["BILLA", "SPAR", "HOFER"]
+
+[[rules]]
+category_id = "fees"
+patterns = ["Kontoführung", "Gebühr"]
+
+[[rules]]
+category_id = "cash"
+patterns = ["ATM Withdrawal"]
+
+[[rules]]
+category_id = "shopping"
+patterns = ["AMAZON"]
