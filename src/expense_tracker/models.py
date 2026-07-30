@@ -25,6 +25,7 @@ class Transaction(BaseModel):
     booking_date: date
     amount_cents: int
     title: str = ""
+    city: str = ""
     category_id: str | None = None
 
     @property

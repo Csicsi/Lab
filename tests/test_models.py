@@ -8,6 +8,7 @@ from expense_tracker import (
     Category,
     Transaction,
     parse_amount_to_cents,
+    parse_narrative,
 )
 
 
@@ -80,3 +81,31 @@ def test_positive_transaction_is_income() -> None:
 )
 def test_parse_amount_to_cents(raw: str, expected: int) -> None:
     assert parse_amount_to_cents(raw) == expected
+
+
+def test_parse_narrative_extracts_merchant_and_city() -> None:
+    raw = r"KARTENZAHLUNG 1234 | POS 5678 | BILLA\WIEN\1010"
+
+    assert parse_narrative(raw) == ("BILLA", "WIEN")
+
+
+def test_parse_narrative_recognizes_atm_withdrawal() -> None:
+    raw = "BARGELDBEZUG 1234 | Automat Wien Hauptbahnhof"
+
+    assert parse_narrative(raw) == (
+        "ATM Withdrawal",
+        "Automat Wien Hauptbahnhof",
+    )
+
+
+def test_parse_narrative_ignores_fee_information() -> None:
+    raw = r"KARTENZAHLUNG 1234 | POS 5678 | SHOP\GRAZ\8010 | SPESEN: 1,50"
+
+    assert parse_narrative(raw) == ("SHOP", "GRAZ")
+
+
+@pytest.mark.parametrize("raw", ["", "KARTENZAHLUNG 1234"])
+def test_parse_narrative_returns_raw_text_when_segments_are_missing(
+    raw: str,
+) -> None:
+    assert parse_narrative(raw) == ("", raw.strip())
