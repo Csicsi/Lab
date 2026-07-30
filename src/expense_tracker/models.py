@@ -26,6 +26,8 @@ class Transaction(BaseModel):
     amount_cents: int
     title: str = ""
     city: str = ""
+    raw_description: str = ""
+    source_record: str = ""
     category_id: str | None = None
 
     @property

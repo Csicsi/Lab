@@ -4,9 +4,21 @@ import csv
 from collections.abc import Iterable
 from datetime import datetime
 from hashlib import sha256
+from io import StringIO
 from pathlib import Path
+import re
 
 from .models import Transaction, parse_amount_to_cents
+
+
+BIC_PREFIX_RE = re.compile(r"^[A-Z0-9]{8}([A-Z0-9]{3})?\s+")
+IBAN_PREFIX_RE = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{1,30}\s+")
+CARD_NARRATIVE_PREFIXES = (
+    "bezahlung karte",
+    "auszahlung karte",
+    "kartenzahlung",
+    "bargeldbezug",
+)
 
 
 def parse_bawag_csv(
@@ -43,6 +55,7 @@ def parse_bawag_csv(
         source_id = sha256(
             "\x1f".join(row).encode("utf-8")
         ).hexdigest()
+        source_record = serialize_csv_row(row)
 
         transactions.append(
             Transaction(
@@ -56,6 +69,8 @@ def parse_bawag_csv(
                 amount_cents=parse_amount_to_cents(amount),
                 title=title,
                 city=city,
+                raw_description=narrative,
+                source_record=source_record,
             )
         )
 
@@ -72,9 +87,67 @@ def load_bawag_csv(
         return parse_bawag_csv(csv_file, account_id=account_id)
 
 
-def parse_narrative(raw: str) -> tuple[str, str]:
+def serialize_csv_row(row: list[str]) -> str:
+    """Serialize parsed fields back into one complete BAWAG CSV record."""
+    output = StringIO()
+    writer = csv.writer(output, delimiter=";", lineterminator="")
+    writer.writerow(row)
+    return output.getvalue()
+
+
+def strip_bank_identifiers(segment: str) -> str:
     """
-    Parse this bank's card transaction narrative format.
+    Strip a leading BIC and/or IBAN token from a narrative segment.
+
+    Some segments have both identifiers, some only an IBAN, and some
+    neither.
+    """
+    text = segment.strip()
+
+    bic_match = BIC_PREFIX_RE.match(text)
+    if bic_match:
+        text = text[bic_match.end():]
+
+    iban_match = IBAN_PREFIX_RE.match(text)
+    if iban_match:
+        text = text[iban_match.end():]
+
+    return text.strip()
+
+
+def parse_transfer_narrative(raw: str) -> tuple[str, str]:
+    """
+    Parse transfers, standing orders, and direct debits.
+
+    Prefer the segment carrying a BIC/IBAN because later segments can be
+    payment-purpose text. For internal bank records without a counterparty,
+    use the descriptive text at the start of the first segment.
+    """
+    segments = [segment.strip() for segment in raw.split("|")]
+
+    for segment in segments[1:]:
+        counterparty = strip_bank_identifiers(segment)
+        if counterparty != segment:
+            return counterparty, ""
+
+    first_segment_title = re.split(r"\s{2,}", segments[0], maxsplit=1)[0]
+    if first_segment_title != segments[0]:
+        return first_segment_title, ""
+
+    return strip_bank_identifiers(segments[-1]), ""
+
+
+def parse_narrative(raw: str) -> tuple[str, str]:
+    """Dispatch to card or transfer parsing based on the narrative prefix."""
+    stripped = raw.strip()
+    if stripped.casefold().startswith(CARD_NARRATIVE_PREFIXES):
+        return parse_card_narrative(raw)
+    return parse_transfer_narrative(raw)
+
+
+def parse_card_narrative(raw: str) -> tuple[str, str]:
+    """
+    Parse this bank's card-transaction narrative format.
 
     Segment 0: transaction type + card ref
     Segment 1: terminal/POS metadata, or "AUTOMAT ..." for cash withdrawals
@@ -86,7 +159,9 @@ def parse_narrative(raw: str) -> tuple[str, str]:
     """
     segments = [segment.strip() for segment in raw.split("|")]
 
-    if len(segments) > 1 and segments[1].upper().startswith("AUTOMAT"):
+    if len(segments) > 1 and segments[1].upper().startswith(
+        ("AUTOMAT", "QUICK-L")
+    ):
         return "ATM Withdrawal", segments[1]
 
     if len(segments) < 3:

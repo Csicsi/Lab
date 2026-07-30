@@ -22,6 +22,15 @@ def test_parse_bawag_csv_parses_export_row() -> None:
     assert transaction.amount_cents == -1549
     assert transaction.title == "BILLA"
     assert transaction.city == "WIEN"
+    assert transaction.raw_description == (
+        r"Bezahlung Karte MC/0001|POS 1234|BILLA\WIEN\1010"
+    )
+    assert transaction.source_record == (
+        "AT123;"
+        r"Bezahlung Karte MC/0001|POS 1234|BILLA\WIEN\1010"
+        ";28.07.2026;28.07.2026;-15,49;EUR"
+    )
+    assert transaction.category_id is None
 
 
 def test_parse_bawag_csv_accepts_application_account_id() -> None:
@@ -36,6 +45,7 @@ def test_parse_bawag_csv_accepts_application_account_id() -> None:
     assert transaction.account_id == "bawag-main"
     assert transaction.title == "ATM Withdrawal"
     assert transaction.city == "AUTOMAT WIEN HAUPTBAHNHOF"
+    assert transaction.category_id is None
 
 
 def test_parse_bawag_csv_uses_transaction_type_as_fallback_title() -> None:

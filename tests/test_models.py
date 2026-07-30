@@ -9,6 +9,8 @@ from expense_tracker import (
     Transaction,
     parse_amount_to_cents,
     parse_narrative,
+    parse_transfer_narrative,
+    strip_bank_identifiers,
 )
 
 
@@ -109,3 +111,71 @@ def test_parse_narrative_returns_raw_text_when_segments_are_missing(
     raw: str,
 ) -> None:
     assert parse_narrative(raw) == ("", raw.strip())
+
+
+@pytest.mark.parametrize(
+    ("segment", "expected"),
+    [
+        (
+            "AT121200050660059007 Hutchison Drei Austria GmbH",
+            "Hutchison Drei Austria GmbH",
+        ),
+        (
+            "BAWAATWWXXX AT121200050660059007 A1 Telekom Austria AG",
+            "A1 Telekom Austria AG",
+        ),
+        ("Counterparty without identifiers", "Counterparty without identifiers"),
+    ],
+)
+def test_strip_bank_identifiers(segment: str, expected: str) -> None:
+    assert strip_bank_identifiers(segment) == expected
+
+
+def test_parse_transfer_narrative_uses_cleaned_final_segment() -> None:
+    raw = (
+        "Abbuchung Lastschrift|Reference 123|"
+        "BAWAATWWXXX AT121200050660059007 A1 Telekom Austria AG"
+    )
+
+    assert parse_transfer_narrative(raw) == ("A1 Telekom Austria AG", "")
+
+
+def test_parse_narrative_dispatches_transfer_narratives() -> None:
+    raw = (
+        "Abbuchung Onlinebanking|"
+        "AT121200050660059007 Hutchison Drei Austria GmbH"
+    )
+
+    assert parse_narrative(raw) == ("Hutchison Drei Austria GmbH", "")
+
+
+def test_transfer_prefers_counterparty_over_trailing_purpose() -> None:
+    raw = (
+        "Abbuchung Onlinebanking BG/000007700|"
+        "BAWAATWWXXX AT241400000910328824 Balla Gergely|"
+        "Szabadulas"
+    )
+
+    assert parse_narrative(raw) == ("Balla Gergely", "")
+
+
+def test_transfer_uses_internal_bank_record_description() -> None:
+    raw = (
+        "Depotentgelt                    10168024172  WF/000007769|"
+        "Depotgebühr Juni 2026|davon 20% USt. EUR 0,26|"
+        "2061532320260704 10168024172"
+    )
+
+    assert parse_narrative(raw) == ("Depotentgelt", "")
+
+
+def test_card_parser_recognizes_legacy_quick_l_cash_withdrawal() -> None:
+    raw = (
+        "Bezahlung Karte MC/000000338|"
+        "QUICK-L   00018872 K001 03.05. 11:21"
+    )
+
+    assert parse_narrative(raw) == (
+        "ATM Withdrawal",
+        "QUICK-L   00018872 K001 03.05. 11:21",
+    )
