@@ -13,3 +13,4 @@ wheels/
 data/
 *.csv
 uncategorized_transactions.txt
+config/categories.toml
