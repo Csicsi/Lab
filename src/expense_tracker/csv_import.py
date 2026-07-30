@@ -119,22 +119,12 @@ def parse_transfer_narrative(raw: str) -> tuple[str, str]:
     """
     Parse transfers, standing orders, and direct debits.
 
-    Prefer the segment carrying a BIC/IBAN because later segments can be
-    payment-purpose text. For internal bank records without a counterparty,
-    use the descriptive text at the start of the first segment.
+    The counterparty is the final pipe-separated segment, with leading
+    bank identifiers removed.
     """
     segments = [segment.strip() for segment in raw.split("|")]
-
-    for segment in segments[1:]:
-        counterparty = strip_bank_identifiers(segment)
-        if counterparty != segment:
-            return counterparty, ""
-
-    first_segment_title = re.split(r"\s{2,}", segments[0], maxsplit=1)[0]
-    if first_segment_title != segments[0]:
-        return first_segment_title, ""
-
-    return strip_bank_identifiers(segments[-1]), ""
+    counterparty = strip_bank_identifiers(segments[-1])
+    return counterparty, ""
 
 
 def parse_narrative(raw: str) -> tuple[str, str]:
@@ -144,32 +134,45 @@ def parse_narrative(raw: str) -> tuple[str, str]:
         return parse_card_narrative(raw)
     return parse_transfer_narrative(raw)
 
-
 def parse_card_narrative(raw: str) -> tuple[str, str]:
-    """
-    Parse this bank's card-transaction narrative format.
+    segments = [s.strip() for s in raw.split("|")]
 
-    Segment 0: transaction type + card ref
-    Segment 1: terminal/POS metadata, or "AUTOMAT ..." for cash withdrawals
-    Segment 2: merchant\\city\\postal — present for POS/e-comm, absent for ATM
-    Segment 3+ (if present): fee/exchange-rate info — ignored for now
-
-    E-commerce narratives may contain a merchant code rather than a city in the
-    second merchant-field component.
-    """
-    segments = [segment.strip() for segment in raw.split("|")]
-
-    if len(segments) > 1 and segments[1].upper().startswith(
-        ("AUTOMAT", "QUICK-L")
-    ):
-        return "ATM Withdrawal", segments[1]
+    if len(segments) > 1:
+        terminal_info = segments[1].upper()
+        if terminal_info.startswith("AUTOMAT") or terminal_info.startswith("QUICK-L"):
+            return "ATM Withdrawal", segments[1]
 
     if len(segments) < 3:
         return "", raw.strip()
 
     merchant_field = segments[2]
-    parts = [part for part in merchant_field.split("\\") if part.strip()]
-    merchant = parts[0] if parts else merchant_field
-    city = parts[1] if len(parts) > 1 else ""
-
+    parts = [p for p in merchant_field.split("\\") if p.strip()]
+    merchant = parts[0].strip() if parts else merchant_field
+    city = parts[1].strip() if len(parts) > 1 else ""
     return merchant, city
+
+
+def parse_transfer_narrative(raw: str) -> tuple[str, str]:
+    stripped_raw = raw.strip()
+    segments = [s.strip() for s in raw.split("|")]
+
+    # These two narrative types have a fixed, different shape — the
+    # counterparty concept doesn't really apply, so name the *type*
+    # of transaction instead of guessing at a merchant.
+    if stripped_raw.startswith("SB-Eigenerlag"):
+        return "Cash Deposit", segments[-1] if len(segments) > 1 else ""
+    if stripped_raw.startswith("Depotentgelt"):
+        return "Depotentgelt", segments[1] if len(segments) > 1 else ""
+
+    # General case: the counterparty could be in any segment after
+    # segment 0, possibly with a BIC/IBAN glued on, possibly followed
+    # by an unrelated purpose-text segment. Strip bank identifiers from
+    # every candidate, then take whichever has the most letters left —
+    # reference codes and purpose text are short/numeric, real names
+    # and company names have actual words in them.
+    candidates = [strip_bank_identifiers(s) for s in segments[1:]]
+    if not candidates:
+        return "", ""
+
+    best = max(candidates, key=lambda c: sum(ch.isalpha() for ch in c))
+    return best, ""
